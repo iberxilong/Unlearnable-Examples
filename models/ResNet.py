@@ -4,18 +4,19 @@ import torch.nn.functional as F
 import math
 
 
-class BasicBlock(nn.Module):
+class BasicBlock(nn.Module):    # 用于构建浅层的ResNet网络
     expansion = 1
 
     def __init__(self, in_planes, planes, stride=1):
         super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)# 卷积层1,提取特征
+        self.bn1 = nn.BatchNorm2d(planes)   #   批 batch 归一化层,用于稳定学习过程,加快收敛速度,有助于防止过拟合.
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
 
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
+        self.shortcut = nn.Sequential() #   快捷连接,允许网络直接传递输入到输出,有助于解决深度网络中的梯度消失问题.
+                                        
+        if stride != 1 or in_planes != self.expansion * planes:#   且如果输入和输出的维度不匹配(由于卷积操作改变了特征图的尺寸或深度），self.shortcut 会通过一个额外的 1x1 卷积层来调整维度。
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion * planes)
@@ -55,7 +56,7 @@ class Bottleneck(nn.Module):
         out += self.shortcut(x)
         out = F.relu(out)
         return out
-
+    
 
 class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10):
@@ -87,7 +88,6 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
-
 
 def ResNet18(num_classes=10):
     return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
