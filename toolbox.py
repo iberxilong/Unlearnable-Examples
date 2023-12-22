@@ -41,7 +41,7 @@ class PerturbationTool():
             perturb_img.retain_grad()
             loss.backward()
             eta = self.step_size * perturb_img.grad.data.sign() * (-1)
-            perturb_img = Variable(perturb_img.data + eta, requires_grad=True)
+            perturb_img = Variable(perturb_img.data + eta, requires_grad=True)  #   在clamp之前，先更新一下梯度,一个输入就更新一次梯度，记录参数改变的方向。来让参数拟合，降低损失函数
             eta = torch.clamp(perturb_img.data - images.data, -self.epsilon, self.epsilon)
             perturb_img = Variable(images.data + eta, requires_grad=True)
             perturb_img = Variable(torch.clamp(perturb_img, 0, 1), requires_grad=True)
