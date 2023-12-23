@@ -13,7 +13,7 @@ class PerturbationTool():
         self.epsilon = epsilon
         self.num_steps = num_steps
         self.step_size = step_size
-        self.seed = seed
+        self.seed = seed    #   类的属性
         np.random.seed(seed)
 
     def random_noise(self, noise_shape=[10, 3, 32, 32]):
@@ -24,27 +24,31 @@ class PerturbationTool():
         if random_noise is None:
             random_noise = torch.FloatTensor(*images.shape).uniform_(-self.epsilon, self.epsilon).to(device)
 
-        perturb_img = Variable(images.data + random_noise, requires_grad=True)
+        perturb_img = Variable(images.data + random_noise, requires_grad=True)  
+        #    Variable()是旧用法，把图片和噪声 合并，并转为跟踪梯度的tensor向量
+        #等同于 perturb_img = (images.data + random_noise).requires_grad_(True)  ，
+
         perturb_img = Variable(torch.clamp(perturb_img, 0, 1), requires_grad=True)
-        eta = random_noise
-        for _ in range(self.num_steps):
-            opt = torch.optim.SGD([perturb_img], lr=1e-3)
+        #   使图像合理化，因为归一化后，像素值只能在0，1之间
+        eta = random_noise  #   
+        for _ in range(self.num_steps): #   开始若干步的噪声迭代优化
+            opt = torch.optim.SGD([perturb_img], lr=1e-3)   #   随机梯度下降
             opt.zero_grad()
             model.zero_grad()
             if isinstance(criterion, torch.nn.CrossEntropyLoss):
-                if hasattr(model, 'classify'):
+                if hasattr(model, 'classify'):  #   网络模型中没有定义这个属性/方法
                     model.classify = True
                 logits = model(perturb_img)
                 loss = criterion(logits, labels)
-            else:
+            else:#  若自定义损失函数，则根据自定义的损失函数来算
                 logits, loss = criterion(model, perturb_img, labels, optimizer)
-            perturb_img.retain_grad()
+            perturb_img.retain_grad()   #   反向传播会清除非叶子节点的梯度信息，所以要在反向传播前先声明 保留其梯度
             loss.backward()
-            eta = self.step_size * perturb_img.grad.data.sign() * (-1)
-            perturb_img = Variable(perturb_img.data + eta, requires_grad=True)  #   在clamp之前，先更新一下梯度,一个输入就更新一次梯度，记录参数改变的方向。来让参数拟合，降低损失函数
-            eta = torch.clamp(perturb_img.data - images.data, -self.epsilon, self.epsilon)
+            eta = self.step_size * perturb_img.grad.data.sign() * (-1)                    #   对应公式（3）
+            perturb_img = Variable(perturb_img.data + eta, requires_grad=True)  
+            eta = torch.clamp(perturb_img.data - images.data, -self.epsilon, self.epsilon)#   控制噪声大小
             perturb_img = Variable(images.data + eta, requires_grad=True)
-            perturb_img = Variable(torch.clamp(perturb_img, 0, 1), requires_grad=True)
+            perturb_img = Variable(torch.clamp(perturb_img, 0, 1), requires_grad=True)    #   确保像素值正常
 
         return perturb_img, eta
 
